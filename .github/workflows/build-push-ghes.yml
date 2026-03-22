@@ -10,8 +10,7 @@ on:
       - 'server/**'
       - 'shared/**'
       - 'app/**'
-      - 'Dockerfile'
-      - 'Dockerfile.base'
+      - 'Dockerfile.combined'
       - 'package.json'
       - 'yarn.lock'
       - '.github/workflows/build-push-ghes.yml'
@@ -52,24 +51,13 @@ jobs:
             type=raw,value=main-{{sha}}-${{ steps.timestamp.outputs.ts }},enable={{is_default_branch}}
             type=raw,value=ghes-support-{{sha}}-${{ steps.timestamp.outputs.ts }},enable=${{ github.ref == 'refs/heads/ghes-support' }}
 
-      - name: Build base image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile.base
-          push: false
-          load: true
-          tags: outline-base:local
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile
+          file: Dockerfile.combined
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            BASE_IMAGE=outline-base:local
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
