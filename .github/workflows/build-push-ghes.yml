@@ -3,8 +3,7 @@ name: Build and Push
 on:
   push:
     branches:
-      - ghes-support
-      - main
+      - ci/ghes-build
     paths:
       - 'plugins/**'
       - 'server/**'
@@ -48,8 +47,7 @@ jobs:
           images: |
             ghcr.io/cameron-mckain/outline
           tags: |
-            type=raw,value=main-{{sha}}-${{ steps.timestamp.outputs.ts }},enable={{is_default_branch}}
-            type=raw,value=ghes-support-{{sha}}-${{ steps.timestamp.outputs.ts }},enable=${{ github.ref == 'refs/heads/ghes-support' }}
+            type=raw,value=main-{{sha}}-${{ steps.timestamp.outputs.ts }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
