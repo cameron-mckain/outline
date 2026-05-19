@@ -106,6 +106,34 @@ router.post(
       extra: { user, scope: scope ?? [], ip: ctx.request.ip },
     };
 
+    // Force Connection: close on the response. The MCP SDK's
+    // StreamableHTTPServerTransport responds with Content-Type:
+    // text/event-stream (via @hono/node-server). On Node 24, a follow-up
+    // request pipelined on the same TCP connection (e.g. the
+    // `notifications/initialized` notification clients send right after
+    // `initialize`) is rejected by Node's HTTP parser with a bare
+    // `HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n`, breaking
+    // every MCP client. We intercept writeHead because @hono/node-server
+    // calls writeHead with its own headers object, replacing anything
+    // previously set via res.setHeader.
+    const originalWriteHead = ctx.res.writeHead.bind(ctx.res);
+    ctx.res.writeHead = ((
+      statusCode: number,
+      ...rest: unknown[]
+    ): typeof ctx.res => {
+      ctx.res.shouldKeepAlive = false;
+      const headersArg = rest.find(
+        (arg) => arg !== null && typeof arg === "object"
+      );
+      if (headersArg && !Array.isArray(headersArg)) {
+        (headersArg as Record<string, string>).Connection = "close";
+      }
+      return (originalWriteHead as (...args: unknown[]) => typeof ctx.res)(
+        statusCode,
+        ...rest
+      );
+    }) as typeof ctx.res.writeHead;
+
     ctx.respond = false;
     await transport.handleRequest(ctx.req, ctx.res, ctx.request.body);
   }
