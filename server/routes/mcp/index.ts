@@ -72,6 +72,24 @@ const mcpHandler = createMcpHandler(createServer, {
 });
 
 /**
+ * Hop-by-hop headers (RFC 9110 §7.6.1) describe the SDK's own connection, not
+ * ours, so they must not be copied onto the Node response. In particular the
+ * SDK sets `connection: keep-alive`, which overrides Node's `Connection: close`
+ * when the client (e.g. a reverse proxy) asked to close. The proxy then reuses
+ * a socket Node has already marked as closing, and the next request on it is
+ * rejected by Node's HTTP parser with a bare 400 that never reaches Koa.
+ */
+const hopByHopHeaders = new Set([
+  "connection",
+  "keep-alive",
+  "proxy-connection",
+  "transfer-encoding",
+  "te",
+  "trailer",
+  "upgrade",
+]);
+
+/**
  * Converts the Koa request to a web request. The body is not copied, as the
  * SDK reads the parsed body instead.
  *
@@ -161,7 +179,11 @@ router.post(
       const response = await mcpHandler.fetch(request, options);
 
       ctx.status = response.status;
-      response.headers.forEach((value, key) => ctx.set(key, value));
+      response.headers.forEach((value, key) => {
+        if (!hopByHopHeaders.has(key.toLowerCase())) {
+          ctx.set(key, value);
+        }
+      });
       ctx.body = response.body ? Readable.from(response.body) : "";
     } catch (error) {
       Logger.error(
