@@ -71,7 +71,10 @@ export class GitHubUtils {
    * resource that can be mentioned.
    */
   public static mentionType(url: URL): MentionType | undefined {
-    if (url.hostname !== "github.com") {
+    const hostname = env.GITHUB_URL
+      ? new URL(env.GITHUB_URL).hostname
+      : "github.com";
+    if (url.hostname !== hostname) {
       return undefined;
     }
 
